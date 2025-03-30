@@ -8,10 +8,73 @@ from llm_agent import LLMAgent  # Импортируем класс LLMAgent
 CACHE_DIR = "cache"
 os.makedirs(CACHE_DIR, exist_ok=True)
 
+CACHE_DIR = "cache"
+IMAGE_DIR = os.path.join(CACHE_DIR, "images")
+os.makedirs(IMAGE_DIR, exist_ok=True)
+
 # Пути к файлам кэша
 SCHEDULE_CACHE_FILE = os.path.join(CACHE_DIR, "schedule_cache.txt")
 PHONES_CACHE_FILE = os.path.join(CACHE_DIR, "phones_cache.txt")
 MEMO_CACHE_FILE = os.path.join(CACHE_DIR, "memo_cache.txt")
+
+
+def parse_images():
+    """
+    Парсит изображения с указанного URL и сохраняет их в папку cache/images.
+
+    Returns:
+        list: Список путей к сохраненным изображениям.
+    """
+    url = "https://clinica.chitgma.ru/grafik-priema-spetsialistov-1"
+    base_url = "https://clinica.chitgma.ru"
+
+    try:
+        # Отправляем GET-запрос к странице
+        response = requests.get(url)
+        response.raise_for_status()
+
+        # Получаем HTML-код страницы
+        html_content = response.text
+
+        # Создаем объект BeautifulSoup для парсинга HTML
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        # Находим все теги <img>
+        img_tags = soup.find_all("img")
+
+        # Фильтруем только нужные изображения (например, по alt="appdp")
+        image_urls = []
+        for img in img_tags:
+            if "appdp" in img.get("alt", ""):
+                img_src = img.get("src")
+                if img_src.startswith("/"):
+                    img_src = base_url + img_src  # Формируем полный URL
+                image_urls.append(img_src)
+
+        # Скачиваем и сохраняем изображения
+        saved_images = []
+        for i, img_url in enumerate(image_urls):
+            try:
+                img_response = requests.get(img_url)
+                img_response.raise_for_status()
+
+                # Сохраняем изображение в папку cache/images
+                file_extension = os.path.splitext(img_url)[-1]
+                file_name = f"schedule_{i}{file_extension}"
+                file_path = os.path.join(IMAGE_DIR, file_name)
+
+                with open(file_path, "wb") as img_file:
+                    img_file.write(img_response.content)
+
+                saved_images.append(file_path)
+            except Exception as e:
+                print(f"Ошибка при скачивании изображения {img_url}: {e}")
+
+        return saved_images
+
+    except requests.exceptions.RequestException as e:
+        print(f"Ошибка при получении данных: {e}")
+        return []
 
 
 def get_patient_memo():
